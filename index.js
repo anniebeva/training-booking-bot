@@ -12,16 +12,14 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
-// ==================== ПРОСТЫЕ ФУНКЦИИ ====================
+// ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 async function getUser(telegramId, username = null) {
-  // Ищем пользователя
   let { data: user, error } = await supabase
     .from('users')
     .select('*')
     .eq('telegram_id', telegramId)
     .single();
   
-  // Если нет — создаём
   if (error && error.code === 'PGRST116') {
     const { data: newUser, error: insertError } = await supabase
       .from('users')
@@ -31,7 +29,6 @@ async function getUser(telegramId, username = null) {
     if (insertError) throw insertError;
     return newUser;
   }
-  
   if (error) throw error;
   return user;
 }
@@ -60,7 +57,6 @@ async function getFreeSlots(trainerId, date) {
     .eq('trainer_id', trainerId)
     .eq('date', date);
   if (error) throw error;
-  // Оставляем только свободные места
   return data.filter(slot => slot.booked_slots < slot.max_slots);
 }
 
@@ -75,7 +71,6 @@ async function getScheduleSlotById(slotId) {
 }
 
 async function incrementBookedSlots(slotId) {
-  // Сначала получаем текущее значение
   const { data: slot, error: fetchError } = await supabase
     .from('schedule')
     .select('booked_slots')
@@ -83,7 +78,6 @@ async function incrementBookedSlots(slotId) {
     .single();
   if (fetchError) throw fetchError;
   
-  // Обновляем
   const { error: updateError } = await supabase
     .from('schedule')
     .update({ booked_slots: slot.booked_slots + 1 })
@@ -189,7 +183,6 @@ const bookingWizard = new Scenes.WizardScene(
     const trainers = await getTrainers();
     ctx.wizard.state.booking.trainerName = trainers.find(t => t.id === trainerId).name;
     
-    // Получаем уникальные даты
     const { data: allSlots } = await supabase
       .from('schedule')
       .select('date')
@@ -274,15 +267,10 @@ const bookingWizard = new Scenes.WizardScene(
       return ctx.scene.leave();
     }
     
-    // Списываем тренировку
     await updateUserSessions(ctx.from.id, user.sessions_left - 1);
-    
-    // Создаём запись
     const bookingId = `booking_${Date.now()}_${ctx.from.id}`;
     const datetime = `${slot.date}T${slot.time}`;
     await createBooking(bookingId, ctx.from.id, slot.id, ctx.wizard.state.booking.trainerName, datetime);
-    
-    // Увеличиваем счётчик
     await incrementBookedSlots(slot.id);
     
     const updatedUser = await getUser(ctx.from.id);
@@ -319,11 +307,21 @@ const cancelWizard = new Scenes.WizardScene(
     
     const bookingId = ctx.callbackQuery.data.split('_')[1];
     const user = await getUser(ctx.from.id);
-    const allBookings = await getAllUserBookings(ctx.from.id);
-    const booking = allBookings.find(b => b.id === bookingId);
+    
+    const { data: allBookings, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('user_id', ctx.from.id);
+    
+    if (error) {
+      await ctx.reply('❌ Ошибка при поиске записи.');
+      return ctx.scene.leave();
+    }
+    
+    const booking = allBookings?.find(b => b.id === bookingId);
     
     if (!booking) {
-      await ctx.reply('❌ Запись не найдена.');
+      await ctx.reply('❌ Запись не найдена. Возможно, она уже была отменена.');
       return ctx.scene.leave();
     }
     
@@ -336,7 +334,6 @@ const cancelWizard = new Scenes.WizardScene(
       ctx.wizard.state.bookingToCancel = { booking, user, within24 };
       return ctx.wizard.next();
     } else {
-      // Бесплатная отмена
       await updateUserSessions(ctx.from.id, user.sessions_left + 1);
       await deleteBooking(booking.id, booking.schedule_id);
       await ctx.reply(`✅ Отменено. Тренировка возвращена. Осталось: ${user.sessions_left + 1}`);
@@ -349,8 +346,6 @@ const cancelWizard = new Scenes.WizardScene(
     await ctx.answerCbQuery();
     
     const { booking, user, within24 } = ctx.wizard.state.bookingToCancel;
-    
-    // Штрафная отмена — тренировка не возвращается
     await deleteBooking(booking.id, booking.schedule_id);
     
     const updatedUser = await getUser(ctx.from.id);
@@ -362,11 +357,14 @@ const cancelWizard = new Scenes.WizardScene(
 );
 
 // ==================== НАСТРОЙКА ====================
+// ... все импорты и функции остаются без изменений ...
+
+// ==================== НАСТРОЙКА ====================
 const stage = new Scenes.Stage([bookingWizard, cancelWizard]);
 bot.use(session());
 bot.use(stage.middleware());
 
-// ==================== КОМАНДЫ ====================
+// ==================== КОМАНДЫ (СНАЧАЛА) ====================
 bot.start(async (ctx) => {
   const user = await getUser(ctx.from.id, ctx.from.username);
   await ctx.reply(`🏋️ Добро пожаловать!\n💪 Осталось: ${user.sessions_left} тренировок\n\nВыберите действие:`, {
@@ -374,33 +372,119 @@ bot.start(async (ctx) => {
       keyboard: [
         ['📅 Записаться'],
         ['❌ Отменить', '💪 Мой абонемент'],
-        ['❓ Помощь']
+        ['📋 Мои записи', '❓ Помощь']
       ],
       resize_keyboard: true
     }
   });
 });
 
-bot.hears('📅 Записаться', async (ctx) => {
-  await ctx.scene.enter('booking-wizard');
+bot.command('my', async (ctx) => {
+  const user = await getUser(ctx.from.id);
+  await ctx.reply(`💪 Осталось тренировок: ${user.sessions_left}`);
 });
 
-bot.hears('❌ Отменить', async (ctx) => {
-  await ctx.scene.enter('cancel-wizard');
+bot.command('recordings', async (ctx) => {
+  const { data: bookings, error } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('user_id', ctx.from.id)
+    .order('datetime', { ascending: true });
+  
+  if (error) {
+    await ctx.reply('❌ Ошибка при загрузке записей');
+    return;
+  }
+  
+  if (!bookings || bookings.length === 0) {
+    await ctx.reply('📭 У вас пока нет записей.');
+    return;
+  }
+  
+  let message = '📋 Ваши записи:\n\n';
+  bookings.forEach((booking, index) => {
+    const date = booking.datetime.split('T')[0];
+    const time = booking.datetime.split('T')[1].substring(0, 5);
+    message += `${index + 1}. ${booking.trainer_name} — ${date} в ${time}\n`;
+  });
+  
+  await ctx.reply(message);
 });
+
+// ==================== КНОПКИ (ПОТОМ) ====================
+bot.hears('📅 Записаться', async (ctx) => ctx.scene.enter('booking-wizard'));
+bot.hears('❌ Отменить', async (ctx) => ctx.scene.enter('cancel-wizard'));
 
 bot.hears('💪 Мой абонемент', async (ctx) => {
   const user = await getUser(ctx.from.id);
   await ctx.reply(`💪 Осталось тренировок: ${user.sessions_left}`);
 });
 
-bot.hears('❓ Помощь', async (ctx) => {
-  await ctx.reply(`❓ Помощь:\n/start — меню\n/my — остаток\n\nОтмена бесплатно за 24+ часов. Позже — тренировка списывается.`);
+bot.hears('📋 Мои записи', async (ctx) => {
+  const { data: bookings, error } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('user_id', ctx.from.id)
+    .order('datetime', { ascending: true });
+  
+  if (error) {
+    await ctx.reply('❌ Ошибка при загрузке записей');
+    return;
+  }
+  
+  if (!bookings || bookings.length === 0) {
+    await ctx.reply('📭 У вас пока нет записей.\n\nНажмите "📅 Записаться", чтобы выбрать тренировку.');
+    return;
+  }
+  
+  let message = '📋 *Ваши записи:*\n\n';
+  bookings.forEach((booking, index) => {
+    const date = booking.datetime.split('T')[0];
+    const time = booking.datetime.split('T')[1].substring(0, 5);
+    message += `${index + 1}. ${booking.trainer_name} — ${date} в ${time}\n`;
+  });
+  message += '\nЧтобы отменить запись, нажмите "❌ Отменить"';
+  
+  await ctx.reply(message, { parse_mode: 'Markdown' });
 });
 
-bot.command('my', async (ctx) => {
-  const user = await getUser(ctx.from.id);
-  await ctx.reply(`💪 Осталось тренировок: ${user.sessions_left}`);
+bot.hears('❓ Помощь', async (ctx) => {
+  await ctx.reply(`❓ Помощь:\n/start — меню\n/my — остаток тренировок\n/recordings — мои записи\n\nОтмена бесплатно за 24+ часов. Позже — тренировка списывается.`);
+});
+
+// ==================== ОБРАБОТЧИК НЕИЗВЕСТНОГО ТЕКСТА (В КОНЦЕ) ====================
+bot.on('text', async (ctx) => {
+  // Пропускаем команды
+  if (ctx.message.text.startsWith('/')) {
+    return;
+  }
+  
+  // Пропускаем, если пользователь внутри сцены
+  const isInScene = ctx.session?.__scenes?.current;
+  if (isInScene) {
+    return;
+  }
+  
+  // Пропускаем кнопки меню
+  const menuButtons = ['📅 Записаться', '❌ Отменить', '💪 Мой абонемент', '📋 Мои записи', '❓ Помощь'];
+  if (menuButtons.includes(ctx.message.text)) {
+    return;
+  }
+  
+  // Всё остальное — неизвестный ввод
+  await ctx.reply(
+    '❓ Я вас не понял.\n\nПожалуйста, используйте кнопки меню или команду /start',
+    {
+      reply_markup: {
+        keyboard: [
+          ['📅 Записаться'],
+          ['❌ Отменить', '💪 Мой абонемент'],
+          ['📋 Мои записи', '❓ Помощь']
+        ],
+        resize_keyboard: true
+      }
+    }
+  );
 });
 
 // ==================== ЗАПУСК ====================
