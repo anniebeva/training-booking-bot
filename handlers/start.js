@@ -1,4 +1,5 @@
 import { getUser } from '../database/supabase.js';
+import { getSupabase } from '../database/supabase.js';
 
 export function setupStartHandler(bot, ADMIN_ID) {
   
@@ -20,13 +21,27 @@ export function setupStartHandler(bot, ADMIN_ID) {
     });
   });
   
+  // ========== ОБРАБОТЧИК КНОПКИ "ЗАПИСАТЬСЯ" ==========
+  bot.hears('📅 Записаться', async (ctx) => {
+    console.log('🔍 Кнопка "Записаться" нажата!');
+    try {
+      await ctx.scene.enter('booking-wizard');
+      console.log('✅ Сцена booking-wizard запущена');
+    } catch (error) {
+      console.error('❌ Ошибка входа в сцену:', error);
+      await ctx.reply('❌ Ошибка при открытии формы записи. Попробуйте позже.');
+    }
+  });
+  // ===================================================
+  
   bot.command('my', async (ctx) => {
     const user = await getUser(ctx.from.id);
     await ctx.reply(`💪 Осталось тренировок: ${user.sessions_left}`);
   });
   
   bot.command('recordings', async (ctx) => {
-    const { data: bookings, error } = await require('../database/supabase.js').getSupabase()
+    const supabase = getSupabase();
+    const { data: bookings, error } = await supabase
       .from('bookings')
       .select('*')
       .eq('user_id', ctx.from.id)
@@ -58,7 +73,8 @@ export function setupStartHandler(bot, ADMIN_ID) {
   });
   
   bot.hears('📋 Мои записи', async (ctx) => {
-    const { data: bookings, error } = await require('../database/supabase.js').getSupabase()
+    const supabase = getSupabase();
+    const { data: bookings, error } = await supabase
       .from('bookings')
       .select('*')
       .eq('user_id', ctx.from.id)

@@ -126,50 +126,53 @@ export function setupAdminHandlers(bot, ADMIN_ID) {
     await ctx.answerCbQuery('Неизвестная команда');
   });
   
-  // Обработчик добавления тренировок
+  // Обработчик добавления тренировок (исправлен — не блокирует другие обработчики)
   bot.on('text', async (ctx) => {
-    if (ctx.from.id === ADMIN_ID && ctx.session?.waitingForAddSessions) {
-      delete ctx.session.waitingForAddSessions;
-      
-      const parts = ctx.message.text.split(' ');
-      if (parts.length < 2) {
-        await ctx.reply('❌ Формат: @username количество\n\nПример: @annabeva 5');
-        return;
-      }
-      
-      let username = parts[0];
-      const sessionsToAdd = parseInt(parts[1]);
-      
-      if (username.startsWith('@')) {
-        username = username.slice(1);
-      }
-      
-      if (isNaN(sessionsToAdd) || sessionsToAdd <= 0) {
-        await ctx.reply('❌ Количество должно быть положительным числом.');
-        return;
-      }
-      
-      const { data: user, error } = await getSupabase()
-        .from('users')
-        .select('*')
-        .eq('username', username)
-        .single();
-      
-      if (error || !user) {
-        await ctx.reply(`❌ Пользователь @${username} не найден.`);
-        return;
-      }
-      
-      const newSessions = user.sessions_left + sessionsToAdd;
-      await updateUserSessions(user.telegram_id, newSessions);
-      
-      await ctx.reply(`✅ @${username} +${sessionsToAdd} тренировок.\nТеперь осталось: ${newSessions}`);
-      
-      try {
-        await ctx.telegram.sendMessage(user.telegram_id, `🎉 Администратор добавил вам ${sessionsToAdd} тренировок!\n💪 Теперь у вас ${newSessions} тренировок.`);
-      } catch (err) {
-        console.log('Не удалось уведомить пользователя');
-      }
+    // Если не ждём ввод от админа — просто выходим, не блокируя другие обработчики
+    if (!ctx.session?.waitingForAddSessions) {
+      return;
+    }
+    
+    delete ctx.session.waitingForAddSessions;
+    
+    const parts = ctx.message.text.split(' ');
+    if (parts.length < 2) {
+      await ctx.reply('❌ Формат: @username количество\n\nПример: @annabeva 5');
+      return;
+    }
+    
+    let username = parts[0];
+    const sessionsToAdd = parseInt(parts[1]);
+    
+    if (username.startsWith('@')) {
+      username = username.slice(1);
+    }
+    
+    if (isNaN(sessionsToAdd) || sessionsToAdd <= 0) {
+      await ctx.reply('❌ Количество должно быть положительным числом.');
+      return;
+    }
+    
+    const { data: user, error } = await getSupabase()
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .single();
+    
+    if (error || !user) {
+      await ctx.reply(`❌ Пользователь @${username} не найден.`);
+      return;
+    }
+    
+    const newSessions = user.sessions_left + sessionsToAdd;
+    await updateUserSessions(user.telegram_id, newSessions);
+    
+    await ctx.reply(`✅ @${username} +${sessionsToAdd} тренировок.\nТеперь осталось: ${newSessions}`);
+    
+    try {
+      await ctx.telegram.sendMessage(user.telegram_id, `🎉 Администратор добавил вам ${sessionsToAdd} тренировок!\n💪 Теперь у вас ${newSessions} тренировок.`);
+    } catch (err) {
+      console.log('Не удалось уведомить пользователя');
     }
   });
 }

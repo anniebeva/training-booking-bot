@@ -36,8 +36,8 @@ bot.use(stage.middleware());
 
 // Настройка обработчиков
 setupStartHandler(bot, ADMIN_ID);
-setupAdminHandlers(bot, ADMIN_ID);
 setupUnknownHandler(bot);
+setupAdminHandlers(bot, ADMIN_ID);
 
 // Запуск
 bot.launch().then(() => {

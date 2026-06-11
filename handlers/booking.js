@@ -6,9 +6,12 @@ import {
 } from '../database/supabase.js';
 import { notifyAdmin } from '../utils/helpers.js';
 
+console.log('✅ bookingWizard файл загружен');
+
 export const bookingWizard = new Scenes.WizardScene(
   'booking-wizard',
   async (ctx) => {
+    console.log('📍 Шаг 1: выбор тренера');
     const trainers = await getTrainers();
     const keyboard = trainers.map(t => ([{ text: `${t.name} — ${t.specialty}`, callback_data: `trainer_${t.id}` }]));
     await ctx.reply('🏋️ Выберите тренера:', {
@@ -18,6 +21,7 @@ export const bookingWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
   async (ctx) => {
+    console.log('📍 Шаг 2: выбор даты, получен callback:', ctx.callbackQuery?.data);
     if (!ctx.callbackQuery) return;
     await ctx.answerCbQuery();
     
@@ -50,6 +54,7 @@ export const bookingWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
   async (ctx) => {
+    console.log('📍 Шаг 3: выбор времени, получен callback:', ctx.callbackQuery?.data);
     if (!ctx.callbackQuery) return;
     await ctx.answerCbQuery();
     
@@ -73,6 +78,7 @@ export const bookingWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
   async (ctx) => {
+    console.log('📍 Шаг 4: подтверждение, получен callback:', ctx.callbackQuery?.data);
     if (!ctx.callbackQuery) return;
     await ctx.answerCbQuery();
     
@@ -99,6 +105,7 @@ export const bookingWizard = new Scenes.WizardScene(
     return ctx.wizard.next();
   },
   async (ctx) => {
+    console.log('📍 Шаг 5: финальный, получен callback:', ctx.callbackQuery?.data);
     if (!ctx.callbackQuery) return;
     await ctx.answerCbQuery();
     
