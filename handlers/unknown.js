@@ -1,5 +1,68 @@
 import { handleAIQuery } from './ai.js';
 
+// Многоязычные опасные паттерны
+const dangerousPatterns = [
+  // Русский
+  /\bзабудь\b/i,
+  /\bигнорируй\b/i,
+  /\bты больше не\b/i,
+  /\bтеперь ты\b/i,
+  /\bотмени все правила\b/i,
+  /\bпромпт\b/i,
+  /\bsystem prompt\b/i,
+  /\bинструкции\b/i,
+  /\bзабудь все инструкции\b/i,
+  /\bигнорируй предыдущие\b/i,
+  /\bсмени роль\b/i,
+  /\bты хакер\b/i,
+  /\bвзломай\b/i,
+  
+  // English
+  /\bforget\b/i,
+  /\bignore\b/i,
+  /\byou are no longer\b/i,
+  /\bnow you are\b/i,
+  /\boverride all rules\b/i,
+  /\bprompt\b/i,
+  /\binstructions\b/i,
+  /\bforget all instructions\b/i,
+  /\bignore previous\b/i,
+  /\bchange role\b/i,
+  /\byou are a hacker\b/i,
+  /\bhack\b/i,
+  /\bsystem message\b/i,
+  /\bnew instruction\b/i,
+  /\bdisregard\b/i,
+  
+  // Українська
+  /\bзабудь\b/i,
+  /\bігноруй\b/i,
+  /\bти більше не\b/i,
+  /\bтепер ти\b/i,
+  /\bскасуй всі правила\b/i,
+  /\bпромпт\b/i,
+  /\bінструкції\b/i,
+  /\bзламай\b/i,
+  
+  // Deutsch
+  /\bvergiss\b/i,
+  /\bignoriere\b/i,
+  /\bdu bist nicht mehr\b/i,
+  /\bjetzt bist du\b/i,
+  
+  // Français
+  /\boublie\b/i,
+  /\bignore\b/i,
+  /\btu n'es plus\b/i,
+  /\bmaintenant tu es\b/i,
+  
+  // Español
+  /\bolvida\b/i,
+  /\bignora\b/i,
+  /\bya no eres\b/i,
+  /\bahora eres\b/i,
+];
+
 export function setupUnknownHandler(bot) {
   console.log('✅ setupUnknownHandler ВЫЗВАН');
   
@@ -25,10 +88,20 @@ export function setupUnknownHandler(bot) {
       return;
     }
     
+    // Многоязычная проверка на опасный контент
+    const lowerText = ctx.message.text.toLowerCase();
+    const isDangerous = dangerousPatterns.some(pattern => pattern.test(lowerText));
+    
+    if (isDangerous) {
+      console.log('⚠️ Обнаружена попытка взлома:', ctx.message.text);
+      await ctx.reply('❌ Извините, я не могу обработать этот запрос. Пожалуйста, используйте кнопки меню или /start');
+      return;
+    }
+    
     console.log('🚀 ОТПРАВЛЯЕМ В AI:', ctx.message.text);
     
     try {
-      // Показываем, что бот печатает (с обработкой ошибки сети)
+      // Индикатор печати с обработкой ошибки
       try {
         await ctx.replyWithChatAction('typing');
       } catch (typingError) {
