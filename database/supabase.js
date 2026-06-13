@@ -139,3 +139,29 @@ export async function deleteBooking(bookingId, scheduleId) {
   if (error) throw error;
   await decrementBookedSlots(scheduleId);
 }
+
+// Получить ближайшие тренировки по имени тренера (или всех)
+export async function getNearestSessions(trainerName = null, limit = 3) {
+  let query = supabase
+    .from('schedule')
+    .select(`
+      id,
+      date,
+      time,
+      max_slots,
+      booked_slots,
+      trainers (name, specialty)
+    `)
+    .gte('date', new Date().toISOString().split('T')[0])
+    .order('date', { ascending: true })
+    .order('time', { ascending: true })
+    .limit(limit);
+
+  if (trainerName) {
+    query = query.eq('trainers.name', trainerName);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}

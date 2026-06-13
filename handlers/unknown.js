@@ -1,6 +1,6 @@
 import { handleAIQuery } from './ai.js';
 
-// Многоязычные опасные паттерны
+// Многоязычные опасные паттерны (можно оставить снаружи, они не мешают)
 const dangerousPatterns = [
   // Русский
   /\bзабудь\b/i,
@@ -69,29 +69,14 @@ export function setupUnknownHandler(bot) {
   bot.on('text', async (ctx) => {
     console.log('🔍 ПОЛУЧЕН ТЕКСТ:', ctx.message.text);
     
-    // Пропускаем команды
-    if (ctx.message.text.startsWith('/')) {
-      console.log('➡️ Команда, пропускаем');
-      return;
-    }
+    if (ctx.message.text.startsWith('/')) return;
+    if (ctx.session?.__scenes?.current) return;
     
-    // Пропускаем, если внутри сцены
-    if (ctx.session?.__scenes?.current) {
-      console.log('➡️ Внутри сцены, пропускаем');
-      return;
-    }
-    
-    // Пропускаем кнопки меню
     const menuButtons = ['📅 Записаться', '❌ Отменить', '💪 Мой абонемент', '📋 Мои записи', '❓ Помощь', '👑 Админ-панель'];
-    if (menuButtons.includes(ctx.message.text)) {
-      console.log('➡️ Кнопка меню, пропускаем');
-      return;
-    }
+    if (menuButtons.includes(ctx.message.text)) return;
     
-    // Многоязычная проверка на опасный контент
     const lowerText = ctx.message.text.toLowerCase();
     const isDangerous = dangerousPatterns.some(pattern => pattern.test(lowerText));
-    
     if (isDangerous) {
       console.log('⚠️ Обнаружена попытка взлома:', ctx.message.text);
       await ctx.reply('❌ Извините, я не могу обработать этот запрос. Пожалуйста, используйте кнопки меню или /start');
@@ -101,21 +86,12 @@ export function setupUnknownHandler(bot) {
     console.log('🚀 ОТПРАВЛЯЕМ В AI:', ctx.message.text);
     
     try {
-      // Индикатор печати с обработкой ошибки
-      try {
-        await ctx.replyWithChatAction('typing');
-      } catch (typingError) {
-        console.log('⚠️ Индикатор печати не отправлен, продолжаем...');
-      }
-      
-      console.log('🤖 Вызываем handleAIQuery...');
-      const aiResponse = await handleAIQuery(ctx.message.text);
-      console.log('✅ Получен ответ от AI:', aiResponse);
-      
+      await ctx.replyWithChatAction('typing');
+      const aiResponse = await handleAIQuery(ctx.message.text, ctx.from.id);
       await ctx.reply(aiResponse);
     } catch (error) {
       console.error('❌ Ошибка при вызове AI:', error);
-      await ctx.reply('❌ Произошла ошибка при обработке запроса. Попробуйте позже или напишите @admin');
+      await ctx.reply('❌ Произошла ошибка. Попробуйте позже или напишите @admin');
     }
   });
 }

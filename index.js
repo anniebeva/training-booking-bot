@@ -23,7 +23,11 @@ initSupabase(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 // Инициализация AI (OpenRouter)
 if (process.env.OPENROUTER_API_KEY) {
-  initAI(process.env.OPENROUTER_API_KEY);
+  initAI(
+    process.env.OPENROUTER_API_KEY,
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_ANON_KEY   
+  );
   console.log('✅ AI инициализирован (OpenRouter)');
 } else {
   console.log('⚠️ AI не настроен (нет OPENROUTER_API_KEY)');
