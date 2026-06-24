@@ -35,20 +35,35 @@ export const bookingWizard = new Scenes.WizardScene(
     const trainers = await getTrainers();
     ctx.wizard.state.booking.trainerName = trainers.find(t => t.id === trainerId).name;
     
+    // Получаем все даты для этого тренера
     const { data: allSlots } = await getSupabase()
       .from('schedule')
       .select('date')
       .eq('trainer_id', trainerId)
-      .gte('date', new Date().toISOString().split('T')[0]);
-    
-    const dates = [...new Set(allSlots?.map(s => s.date) || [])];
+      .gte('date', new Date().toISOString().split('T')[0]); // от сегодня
+
+    // Ограничиваем даты: от завтра до +30 дней
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const maxDate = new Date(today);
+    maxDate.setDate(maxDate.getDate() + 30);
+
+    const dateStrings = allSlots?.map(s => s.date) || [];
+    const filteredDates = dateStrings.filter(d => {
+      const dateObj = new Date(d);
+      return dateObj >= tomorrow && dateObj <= maxDate;
+    });
+
+    const dates = [...new Set(filteredDates)]; // уникальные даты
+
     if (dates.length === 0) {
-      await ctx.reply('❌ Нет доступных дат для этого тренера.');
+      await ctx.reply('❌ Нет доступных дат для этого тренера на ближайший месяц.');
       return ctx.scene.leave();
     }
     
     const keyboard = dates.map(d => ([{ text: d, callback_data: `date_${d}` }]));
-    await ctx.reply('📅 Выберите дату:', {
+    await ctx.reply('📅 Выберите дату (до 30 дней):', {
       reply_markup: { inline_keyboard: [...keyboard, [{ text: '🔙 Назад', callback_data: 'back' }]] }
     });
     return ctx.wizard.next();
@@ -66,6 +81,8 @@ export const bookingWizard = new Scenes.WizardScene(
     ctx.wizard.state.booking.date = date;
     
     const slots = await getFreeSlots(ctx.wizard.state.booking.trainerId, date);
+    console.log('📊 Найдено слотов:', slots.length);
+    
     if (slots.length === 0) {
       await ctx.reply('❌ На эту дату нет свободных мест.');
       return ctx.wizard.selectStep(1);
