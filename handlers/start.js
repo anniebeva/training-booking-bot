@@ -1,27 +1,22 @@
-import { getUser } from '../database/supabase.js';
-import { getSupabase } from '../database/supabase.js';
+import { getUser, getUserBookings } from '../database/supabase.js';
 
 export function setupStartHandler(bot, ADMIN_ID) {
   
   bot.start(async (ctx) => {
     const user = await getUser(ctx.from.id, ctx.from.username);
-    
     let keyboard = [
       ['📅 Записаться'],
       ['❌ Отменить', '💪 Мой абонемент'],
       ['📋 Мои записи', '❓ Помощь']
     ];
-    
     if (ctx.from.id === ADMIN_ID) {
       keyboard.push(['👑 Админ-панель']);
     }
-    
     await ctx.reply(`🏋️ Добро пожаловать!\n💪 Осталось: ${user.sessions_left} тренировок\n\nВыберите действие:`, {
       reply_markup: { keyboard, resize_keyboard: true }
     });
   });
   
-  // ========== ОБРАБОТЧИК КНОПКИ "ЗАПИСАТЬСЯ" ==========
   bot.hears('📅 Записаться', async (ctx) => {
     console.log('🔍 Кнопка "Записаться" нажата!');
     try {
@@ -32,7 +27,6 @@ export function setupStartHandler(bot, ADMIN_ID) {
       await ctx.reply('❌ Ошибка при открытии формы записи. Попробуйте позже.');
     }
   });
-  // ===================================================
   
   bot.command('my', async (ctx) => {
     const user = await getUser(ctx.from.id);
@@ -40,30 +34,17 @@ export function setupStartHandler(bot, ADMIN_ID) {
   });
   
   bot.command('recordings', async (ctx) => {
-    const supabase = getSupabase();
-    const { data: bookings, error } = await supabase
-      .from('bookings')
-      .select('*')
-      .eq('user_id', ctx.from.id)
-      .order('datetime', { ascending: true });
-    
-    if (error) {
-      await ctx.reply('❌ Ошибка при загрузке записей');
-      return;
-    }
-    
+    const bookings = await getUserBookings(ctx.from.id);
     if (!bookings || bookings.length === 0) {
-      await ctx.reply('📭 У вас пока нет записей.');
+      await ctx.reply('📭 У вас нет предстоящих записей.');
       return;
     }
-    
-    let message = '📋 Ваши записи:\n\n';
+    let message = '📋 Ваши предстоящие записи:\n\n';
     bookings.forEach((booking, index) => {
       const date = booking.datetime.split('T')[0];
       const time = booking.datetime.split('T')[1].substring(0, 5);
       message += `${index + 1}. ${booking.trainer_name} — ${date} в ${time}\n`;
     });
-    
     await ctx.reply(message);
   });
   
@@ -73,31 +54,18 @@ export function setupStartHandler(bot, ADMIN_ID) {
   });
   
   bot.hears('📋 Мои записи', async (ctx) => {
-    const supabase = getSupabase();
-    const { data: bookings, error } = await supabase
-      .from('bookings')
-      .select('*')
-      .eq('user_id', ctx.from.id)
-      .order('datetime', { ascending: true });
-    
-    if (error) {
-      await ctx.reply('❌ Ошибка при загрузке записей');
-      return;
-    }
-    
+    const bookings = await getUserBookings(ctx.from.id);
     if (!bookings || bookings.length === 0) {
-      await ctx.reply('📭 У вас пока нет записей.\n\nНажмите "📅 Записаться", чтобы выбрать тренировку.');
+      await ctx.reply('📭 У вас нет предстоящих тренировок.\n\nЧтобы записаться, нажмите "📅 Записаться".');
       return;
     }
-    
-    let message = '📋 *Ваши записи:*\n\n';
+    let message = '📋 *Ваши предстоящие тренировки:*\n\n';
     bookings.forEach((booking, index) => {
       const date = booking.datetime.split('T')[0];
       const time = booking.datetime.split('T')[1].substring(0, 5);
       message += `${index + 1}. ${booking.trainer_name} — ${date} в ${time}\n`;
     });
     message += '\nЧтобы отменить запись, нажмите "❌ Отменить"';
-    
     await ctx.reply(message, { parse_mode: 'Markdown' });
   });
   
@@ -107,7 +75,6 @@ export function setupStartHandler(bot, ADMIN_ID) {
   
   bot.hears('👑 Админ-панель', async (ctx) => {
     if (ctx.from.id !== ADMIN_ID) return;
-    
     await ctx.reply(
       '👑 *Админ-панель*\n\nВыберите действие:',
       {
