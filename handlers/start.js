@@ -28,6 +28,17 @@ export function setupStartHandler(bot, ADMIN_ID) {
     }
   });
   
+  bot.hears('❌ Отменить', async (ctx) => {
+    console.log('🔍 Кнопка "Отменить" нажата!');
+    try {
+      await ctx.scene.enter('cancel-wizard');
+      console.log('✅ Сцена cancel-wizard запущена');
+    } catch (error) {
+      console.error('❌ Ошибка входа в сцену отмены:', error);
+      await ctx.reply('❌ Ошибка при открытии отмены. Попробуйте позже.');
+    }
+  });
+  
   bot.command('my', async (ctx) => {
     const user = await getUser(ctx.from.id);
     await ctx.reply(`💪 Осталось тренировок: ${user.sessions_left}`);
