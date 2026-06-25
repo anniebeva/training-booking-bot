@@ -35,35 +35,41 @@ export const bookingWizard = new Scenes.WizardScene(
     const trainers = await getTrainers();
     ctx.wizard.state.booking.trainerName = trainers.find(t => t.id === trainerId).name;
     
-    // Получаем все даты для этого тренера
+    // Получаем все даты для тренера, начиная с сегодня
     const { data: allSlots } = await getSupabase()
       .from('schedule')
       .select('date')
       .eq('trainer_id', trainerId)
-      .gte('date', new Date().toISOString().split('T')[0]); // от сегодня
-
-    // Ограничиваем даты: от завтра до +30 дней
+      .gte('date', new Date().toISOString().split('T')[0]);
+    
+    // Вычисляем завтра и +30 дней
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const maxDate = new Date(today);
     maxDate.setDate(maxDate.getDate() + 30);
-
+    
+    // Форматируем для сравнения (YYYY-MM-DD)
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const maxDateStr = maxDate.toISOString().split('T')[0];
+    
+    // Фильтруем даты от завтра до +30 дней
     const dateStrings = allSlots?.map(s => s.date) || [];
     const filteredDates = dateStrings.filter(d => {
-      const dateObj = new Date(d);
-      return dateObj >= tomorrow && dateObj <= maxDate;
+      return d >= tomorrowStr && d <= maxDateStr;
     });
-
-    const dates = [...new Set(filteredDates)]; // уникальные даты
-
+    
+    // Уникальные даты
+    const dates = [...new Set(filteredDates)];
+    console.log('📅 Доступные даты (завтра + 30 дней):', dates);
+    
     if (dates.length === 0) {
-      await ctx.reply('❌ Нет доступных дат для этого тренера на ближайший месяц.');
+      await ctx.reply('❌ Нет доступных дат для этого тренера.');
       return ctx.scene.leave();
     }
     
     const keyboard = dates.map(d => ([{ text: d, callback_data: `date_${d}` }]));
-    await ctx.reply('📅 Выберите дату (до 30 дней):', {
+    await ctx.reply('📅 Выберите дату:', {
       reply_markup: { inline_keyboard: [...keyboard, [{ text: '🔙 Назад', callback_data: 'back' }]] }
     });
     return ctx.wizard.next();
