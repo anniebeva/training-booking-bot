@@ -21,7 +21,7 @@ export async function getUser(telegramId, username = null) {
   if (error && error.code === 'PGRST116') {
     const { data: newUser, error: insertError } = await supabase
       .from('users')
-      .insert([{ telegram_id: telegramId, username, sessions_left: 3, role: 'user' }])
+      .insert([{ telegram_id: telegramId, username, sessions_left: 1, role: 'user' }])
       .select()
       .single();
     if (insertError) throw insertError;

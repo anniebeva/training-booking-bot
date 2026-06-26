@@ -4,19 +4,28 @@ export function setupStartHandler(bot, ADMIN_ID) {
   
   bot.start(async (ctx) => {
     const user = await getUser(ctx.from.id, ctx.from.username);
-    let keyboard = [
-      ['📅 Записаться'],
-      ['❌ Отменить', '💪 Мой абонемент'],
-      ['📋 Мои записи', '❓ Помощь']
-    ];
-    if (ctx.from.id === ADMIN_ID) {
-      keyboard.push(['👑 Админ-панель']);
-    }
-    await ctx.reply(`🏋️ Добро пожаловать!\n💪 Осталось: ${user.sessions_left} тренировок\n\nВыберите действие:`, {
-      reply_markup: { keyboard, resize_keyboard: true }
+      let keyboard = [
+        ['📅 Записаться'],
+        ['❌ Отменить', '💪 Мой абонемент'],
+        ['📋 Мои записи', '❓ Помощь']
+      ];
+      if (ctx.from.id === ADMIN_ID) {
+        keyboard.push(['👑 Админ-панель']);
+      }
+
+      let message = `🏋️ Добро пожаловать!`;
+      if (user.sessions_left === 1) {
+        message += `\n🎁 У вас есть 1 тестовая тренировка в подарок!\n💪 Для покупки абонемента обратитесь к администратору.`;
+      } else {
+        message += `\n💪 Осталось: ${user.sessions_left} тренировок`;
+      }
+      message += `\n\nВыберите действие:`;
+
+      await ctx.reply(message, {
+        reply_markup: { keyboard, resize_keyboard: true }
+      });
     });
-  });
-  
+    
   bot.hears('📅 Записаться', async (ctx) => {
     console.log('🔍 Кнопка "Записаться" нажата!');
     try {
@@ -61,7 +70,11 @@ export function setupStartHandler(bot, ADMIN_ID) {
   
   bot.hears('💪 Мой абонемент', async (ctx) => {
     const user = await getUser(ctx.from.id);
-    await ctx.reply(`💪 Осталось тренировок: ${user.sessions_left}`);
+    if (user.sessions_left === 1) {
+      await ctx.reply(`🎁 У вас 1 тестовая тренировка в подарок.\nДля покупки абонемента обратитесь к администратору.`);
+    } else {
+      await ctx.reply(`💪 Осталось тренировок: ${user.sessions_left}`);
+    }
   });
   
   bot.hears('📋 Мои записи', async (ctx) => {
