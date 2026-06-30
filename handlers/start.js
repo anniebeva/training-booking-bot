@@ -1,31 +1,30 @@
 import { getUser, getUserBookings } from '../database/supabase.js';
 
 export function setupStartHandler(bot, ADMIN_ID) {
-  
   bot.start(async (ctx) => {
     const user = await getUser(ctx.from.id, ctx.from.username);
-      let keyboard = [
-        ['📅 Записаться'],
-        ['❌ Отменить', '💪 Мой абонемент'],
-        ['📋 Мои записи', '❓ Помощь']
-      ];
-      if (ctx.from.id === ADMIN_ID) {
-        keyboard.push(['👑 Админ-панель']);
-      }
+    let keyboard = [
+      ['📅 Записаться'],
+      ['❌ Отменить', '💪 Мой абонемент'],
+      ['📋 Мои записи', '❓ Помощь']
+    ];
+    if (ctx.from.id === ADMIN_ID) {
+      keyboard.push(['👑 Админ-панель']);
+    }
 
-      let message = `🏋️ Добро пожаловать!`;
-      if (user.sessions_left === 1) {
-        message += `\n🎁 У вас есть 1 тестовая тренировка в подарок!\n💪 Для покупки абонемента обратитесь к администратору.`;
-      } else {
-        message += `\n💪 Осталось: ${user.sessions_left} тренировок`;
-      }
-      message += `\n\nВыберите действие:`;
+    let message = `🏋️ Добро пожаловать!`;
+    if (user.sessions_left === 1) {
+      message += `\n🎁 У вас есть 1 тестовая тренировка в подарок!\n💪 Для покупки абонемента обратитесь к администратору.`;
+    } else {
+      message += `\n💪 Осталось: ${user.sessions_left} тренировок`;
+    }
+    message += `\n\nВыберите действие:`;
 
-      await ctx.reply(message, {
-        reply_markup: { keyboard, resize_keyboard: true }
-      });
+    await ctx.reply(message, {
+      reply_markup: { keyboard, resize_keyboard: true }
     });
-    
+  });
+
   bot.hears('📅 Записаться', async (ctx) => {
     console.log('🔍 Кнопка "Записаться" нажата!');
     try {
@@ -36,7 +35,7 @@ export function setupStartHandler(bot, ADMIN_ID) {
       await ctx.reply('❌ Ошибка при открытии формы записи. Попробуйте позже.');
     }
   });
-  
+
   bot.hears('❌ Отменить', async (ctx) => {
     console.log('🔍 Кнопка "Отменить" нажата!');
     try {
@@ -47,12 +46,12 @@ export function setupStartHandler(bot, ADMIN_ID) {
       await ctx.reply('❌ Ошибка при открытии отмены. Попробуйте позже.');
     }
   });
-  
+
   bot.command('my', async (ctx) => {
     const user = await getUser(ctx.from.id);
     await ctx.reply(`💪 Осталось тренировок: ${user.sessions_left}`);
   });
-  
+
   bot.command('recordings', async (ctx) => {
     const bookings = await getUserBookings(ctx.from.id);
     if (!bookings || bookings.length === 0) {
@@ -67,7 +66,7 @@ export function setupStartHandler(bot, ADMIN_ID) {
     });
     await ctx.reply(message);
   });
-  
+
   bot.hears('💪 Мой абонемент', async (ctx) => {
     const user = await getUser(ctx.from.id);
     if (user.sessions_left === 1) {
@@ -76,7 +75,7 @@ export function setupStartHandler(bot, ADMIN_ID) {
       await ctx.reply(`💪 Осталось тренировок: ${user.sessions_left}`);
     }
   });
-  
+
   bot.hears('📋 Мои записи', async (ctx) => {
     const bookings = await getUserBookings(ctx.from.id);
     if (!bookings || bookings.length === 0) {
@@ -92,11 +91,11 @@ export function setupStartHandler(bot, ADMIN_ID) {
     message += '\nЧтобы отменить запись, нажмите "❌ Отменить"';
     await ctx.reply(message, { parse_mode: 'Markdown' });
   });
-  
+
   bot.hears('❓ Помощь', async (ctx) => {
     await ctx.reply(`❓ Помощь:\n/start — меню\n/my — остаток тренировок\n/recordings — мои записи\n\nОтмена бесплатно за 24+ часов. Позже — тренировка списывается.`);
   });
-  
+
   bot.hears('👑 Админ-панель', async (ctx) => {
     if (ctx.from.id !== ADMIN_ID) return;
     await ctx.reply(

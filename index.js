@@ -32,12 +32,10 @@ setupStartHandler(bot, ADMIN_ID);
 setupAdminHandlers(bot, ADMIN_ID);
 setupUnknownHandler(bot);
 
-// ========== ВЫБОР РЕЖИМА ==========
 const isProduction = process.env.NODE_ENV === 'production' && process.env.RENDER_EXTERNAL_URL;
 
 (async () => {
   if (isProduction) {
-    // Webhook (для Render)
     const app = express();
     app.use(express.json());
 
@@ -67,8 +65,7 @@ const isProduction = process.env.NODE_ENV === 'production' && process.env.RENDER
       }
     });
   } else {
-    // Long polling (локально)
-    await bot.telegram.deleteWebhook(); // убираем старый вебхук
+    await bot.telegram.deleteWebhook();
     bot.launch().then(() => {
       console.log('✅ Бот запущен в режиме long polling!');
       console.log(`👤 Admin ID: ${ADMIN_ID}`);

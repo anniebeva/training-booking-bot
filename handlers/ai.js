@@ -38,7 +38,6 @@ async function searchKnowledgeBase(query, matchCount = 3) {
   }
 }
 
-// Функция классификации намерения через LLM
 async function classifyIntent(userMessage) {
   const prompt = `Ты классификатор запросов фитнес-бота. Определи намерение пользователя и параметры.
 Намерения:
@@ -66,7 +65,6 @@ async function classifyIntent(userMessage) {
   });
   const result = response.choices[0].message.content;
   console.log('Классификация LLM:', result);
-  // парсим "intent: ... trainer: ..."
   const intentMatch = result.match(/intent:\s*(\w+)/i);
   const trainerMatch = result.match(/trainer:\s*(\w+)/i);
   const intent = intentMatch ? intentMatch[1] : 'general';
@@ -80,7 +78,6 @@ export async function handleAIQuery(userMessage, telegramId) {
     return '❌ AI не настроен. Напишите администратору: @admin';
   }
 
-  // Получаем намерение
   let intent, trainer;
   try {
     const classification = await classifyIntent(userMessage);
@@ -92,7 +89,6 @@ export async function handleAIQuery(userMessage, telegramId) {
     trainer = null;
   }
 
-  // --- 1. Мои записи ---
   if (intent === 'my_bookings') {
     const bookings = await getUserBookings(telegramId);
     if (bookings && bookings.length > 0) {
@@ -105,7 +101,6 @@ export async function handleAIQuery(userMessage, telegramId) {
     }
   }
 
-  // --- 2. Расписание ---
   if (intent === 'schedule') {
     try {
       const sessions = await getNearestSessions(trainer, 3);
@@ -127,7 +122,6 @@ export async function handleAIQuery(userMessage, telegramId) {
     }
   }
 
-  // --- 3. Цены ---
   if (intent === 'price') {
     const relevantChunks = await searchKnowledgeBase(userMessage);
     const context = relevantChunks.map(c => c.content).join('\n---\n');
@@ -141,7 +135,6 @@ export async function handleAIQuery(userMessage, telegramId) {
     return response.choices[0].message.content + '\n\nНажмите /start для главного меню.';
   }
 
-  // --- 4. Общие вопросы (RAG) ---
   const relevantChunks = await searchKnowledgeBase(userMessage);
   const context = relevantChunks.map(c => c.content).join('\n---\n');
   console.log(`📚 Найдено ${relevantChunks.length} фрагментов`);

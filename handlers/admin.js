@@ -2,8 +2,6 @@ import { getSupabase, updateUserSessions, getUser } from '../database/supabase.j
 import { notifyAdmin } from '../utils/helpers.js';
 
 export function setupAdminHandlers(bot, ADMIN_ID) {
-  
-  // Команда /admin
   bot.command('admin', async (ctx) => {
     if (ctx.from.id !== ADMIN_ID) {
       await ctx.reply('❌ У вас нет доступа.');
@@ -25,8 +23,7 @@ export function setupAdminHandlers(bot, ADMIN_ID) {
       }
     );
   });
-  
-  // Обработчики кнопок админ-панели
+
   bot.action(/^admin_(.+)/, async (ctx) => {
     if (ctx.from.id !== ADMIN_ID) {
       await ctx.answerCbQuery('Нет доступа');
@@ -103,14 +100,12 @@ export function setupAdminHandlers(bot, ADMIN_ID) {
         'Пример: /add\\_sessions @annabeva 5',
         { parse_mode: 'Markdown' }
       );
-      
       await ctx.answerCbQuery();
       return;
     }
     await ctx.answerCbQuery('Неизвестная команда');
   });
 
-  // ===== КОМАНДА ДЛЯ ДОБАВЛЕНИЯ ТРЕНИРОВОК (не перехватывает тексты) =====
   bot.command('add_sessions', async (ctx) => {
     if (ctx.from.id !== ADMIN_ID) {
       await ctx.reply('❌ У вас нет прав.');
