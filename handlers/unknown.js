@@ -1,6 +1,5 @@
 import { handleAIQuery } from './ai.js';
 
-// Многоязычные опасные паттерны (можно оставить снаружи, они не мешают)
 const dangerousPatterns = [
   // Русский
   /\bзабудь\b/i,
